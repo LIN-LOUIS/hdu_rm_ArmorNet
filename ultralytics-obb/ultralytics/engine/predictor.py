@@ -53,7 +53,7 @@ from ultralytics.utils.checks import check_imgsz, check_imshow
 from ultralytics.utils.files import increment_path
 from ultralytics.utils.torch_utils import attempt_compile, select_device, smart_inference_mode
 from ultralytics.engine.results import Results
-
+from ultralytics.models.digit_classifier import classify_rois
 STREAM_WARNING = """
 如果未传入 `stream=True` 参数，推理结果会不断累积在内存(RAM)中，
 对于较大的输入源或长时间运行的视频流，可能会导致内存溢出。
@@ -546,18 +546,56 @@ class BasePredictor:
 
         # 获取当前推理结果对象
         result = self.results[i]
-        result.save_dir = self.save_dir.__str__()  # 为其他模块提供路径引用
-        string += f"{result.verbose()}{result.speed['inference']:.1f}ms"
+        # === 两行对接：将 ROI 丢给数字分类器 ===
+        if getattr(result, "armor_rois", None):
+            # 没有权重也能跑通（只是预测随机），有训练好的就填路径：weights="digit_classifier.pt"
+            digits, scores, _ = classify_rois(result.armor_rois, weights="digit_classifier.pt")
+            result.digits, result.digit_scores = digits, scores
 
         # ----------- 可视化部分 -----------
         if self.args.save or self.args.show:
             self.plotted_img = result.plot(
-                line_width=self.args.line_width,   # 绘制线条宽度
-                boxes=self.args.show_boxes,        # 是否显示边界框
-                conf=self.args.show_conf,          # 是否显示置信度
-                labels=self.args.show_labels,      # 是否显示标签
+                line_width=self.args.line_width,
+                boxes=self.args.show_boxes,
+                conf=self.args.show_conf,
+                labels=self.args.show_labels,
                 im_gpu=None if self.args.retina_masks else im[i],
             )
+
+            # === 把数字叠到装甲板框上 ===
+            if getattr(result, "digits", None) and getattr(result, "boxes", None) and len(result.boxes):
+                import cv2
+                armor_name_candidates = set(getattr(self.args, "armor_classes", ["armor", "armor_plate", "plate"]))
+                names = getattr(self.model, "names", None)
+
+                xyxy = result.boxes.xyxy.cpu().numpy()
+                clss = result.boxes.cls.cpu().numpy().astype(int)
+
+                k = 0  # digits 的游标，只给装甲板类框写数字
+                for j in range(len(xyxy)):
+                    cls_id = clss[j]
+                    cls_name = (names[cls_id] if names and cls_id < len(names) else str(cls_id))
+                    if cls_name not in armor_name_candidates:
+                        continue
+                    if k >= len(result.digits):
+                        break
+
+                    x1, y1, x2, y2 = map(int, xyxy[j])
+                    txt = f"{result.digits[k]} ({result.digit_scores[k]:.2f})"
+                    org = (x1, max(0, y1 - 6))
+                    cv2.putText(self.plotted_img, txt, org, cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 0, 255), 2, cv2.LINE_AA)
+                    k += 1
+            result.save_dir = self.save_dir.__str__()  # 为其他模块提供路径引用
+            string += f"{result.verbose()}{result.speed['inference']:.1f}ms"
+                # ----------- 可视化部分 -----------
+            if self.args.save or self.args.show:
+                self.plotted_img = result.plot(
+                    line_width=self.args.line_width,   # 绘制线条宽度
+                    boxes=self.args.show_boxes,        # 是否显示边界框
+                    conf=self.args.show_conf,          # 是否显示置信度
+                    labels=self.args.show_labels,      # 是否显示标签
+                    im_gpu=None if self.args.retina_masks else im[i],
+                )
 
         # ----------- 结果保存部分 -----------
         if self.args.save_txt:
