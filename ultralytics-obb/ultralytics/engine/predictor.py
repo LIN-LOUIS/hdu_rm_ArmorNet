@@ -548,9 +548,14 @@ class BasePredictor:
         result = self.results[i]
         # === 两行对接：将 ROI 丢给数字分类器 ===
         if getattr(result, "armor_rois", None):
-            # 没有权重也能跑通（只是预测随机），有训练好的就填路径：weights="digit_classifier.pt"
-            digits, scores, _ = classify_rois(result.armor_rois, weights="digit_classifier.pt")
+            digits, scores, _ = classify_rois(
+                result.armor_rois,
+                weights="digit_classifier.pt",
+                device=self.device,
+                conf_thr=0.6,  # 低于 0.6 的认为是“识别失败”
+            )
             result.digits, result.digit_scores = digits, scores
+
 
         # ----------- 可视化部分 -----------
         if self.args.save or self.args.show:

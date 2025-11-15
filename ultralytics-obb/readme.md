@@ -96,3 +96,8 @@
     | 修改点                              | 操作                     | 作用              |
     | -------------------------------- | ---------------------- | --------------- |
     | ①  新建 `ultralytics/models/yolo/obb/predict_dual.py`，用 `ThreadPoolExecutor` 实现并行推理| 每一帧的 armor_rois 交给 ThreadPoolExecutor 中的 classify_rois 并行跑 | 跑完后把 digits、scores 写回 result，并画到图上保存/显示 |
+## 修改4
+    | 修改点                              | 操作                     | 作用              |
+    | -------------------------------- | ---------------------- | --------------- |
+    | ①  修改 `main.py`，选择模式（检测 / 导出 / 推理），加载上述模| detect：普通 YOLO / YOLO-OBB 推理（只检测装甲板）;dual：你现在做的 OBB + 数字识别并行推理;export：导出 OpenVINO（顺便把 Step5 也接上）
+
