@@ -26,18 +26,17 @@ from ultralytics.utils.patches import imread
 @dataclass
 class SourceTypes:
     """
-    Class to represent various types of input sources for predictions.
+    表示多种预测输入源类型的类。
 
-    This class uses dataclass to define boolean flags for different types of input sources that can be used for
-    making predictions with YOLO models.
+    本类使用 dataclass 定义若干布尔标记，用于指示可供 YOLO 模型进行预测的不同输入源类型。
 
-    Attributes:
-        stream (bool): Flag indicating if the input source is a video stream.
-        screenshot (bool): Flag indicating if the input source is a screenshot.
-        from_img (bool): Flag indicating if the input source is an image file.
-        tensor (bool): Flag indicating if the input source is a tensor.
+    属性:
+        stream (bool): 是否为视频流输入。
+        screenshot (bool): 是否为屏幕截图输入。
+        from_img (bool): 是否为图像文件输入。
+        tensor (bool): 是否为张量输入。
 
-    Examples:
+    示例:
         >>> source_types = SourceTypes(stream=True, screenshot=False, from_img=False)
         >>> print(source_types.stream)
         True
@@ -49,6 +48,7 @@ class SourceTypes:
     screenshot: bool = False
     from_img: bool = False
     tensor: bool = False
+
 
 
 class LoadStreams:
@@ -150,7 +150,7 @@ class LoadStreams:
             self.imgs[i].append(im)
             self.shape[i] = im.shape
             self.threads[i] = Thread(target=self.update, args=([i, self.caps[i], s]), daemon=True)
-            LOGGER.info(f"{st}Success ✅ ({self.frames[i]} frames of shape {w}x{h} at {self.fps[i]:.2f} FPS)")
+            LOGGER.info(f"{st}Success  ({self.frames[i]} frames of shape {w}x{h} at {self.fps[i]:.2f} FPS)")
             self.threads[i].start()
         LOGGER.info("")  # newline
 
