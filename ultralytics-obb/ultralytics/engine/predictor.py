@@ -552,8 +552,11 @@ class BasePredictor:
                 result.armor_rois,
                 weights="digit_classifier.pt",
                 device=self.device,
-                conf_thr=0.6,  # 低于 0.6 的认为是“识别失败”
+                batch_size=32,
+                num_classes=10,
+                conf_thr=0.6,  # 低于 0.6 的一律记为 -1
             )
+
             result.digits, result.digit_scores = digits, scores
 
 

@@ -96,8 +96,98 @@
     | 修改点                              | 操作                     | 作用              |
     | -------------------------------- | ---------------------- | --------------- |
     | ①  新建 `ultralytics/models/yolo/obb/predict_dual.py`，用 `ThreadPoolExecutor` 实现并行推理| 每一帧的 armor_rois 交给 ThreadPoolExecutor 中的 classify_rois 并行跑 | 跑完后把 digits、scores 写回 result，并画到图上保存/显示 |
-## 修改4
+
     | 修改点                              | 操作                     | 作用              |
     | -------------------------------- | ---------------------- | --------------- |
     | ①  修改 `main.py`，选择模式（检测 / 导出 / 推理），加载上述模| detect：普通 YOLO / YOLO-OBB 推理（只检测装甲板）;dual：你现在做的 OBB + 数字识别并行推理;export：导出 OpenVINO（顺便把 Step5 也接上）
+    | 修改点                              | 操作                     | 作用              |
+    | -------------------------------- | ---------------------- | --------------- |
+    | ①  修改 `predictor.py`的write_result中 === 两行对接：将 ROI 丢给数字分类器 ===| 增加了置信度|增强网络的准确率
+    | 2 修改 `digit_classifier.py`的classify_rois| 增加了置信度,若未识别数字返回-1|增强网络的准确率
 
+
+# 先训练数字识别
+    /home/lin/Desktop/deep_learning/digits_dataset/
+    ├─ 0/
+    │   ├─ xxx_1.jpg
+    │   ├─ xxx_2.jpg
+    ├─ 1/
+    ├─ 2/
+    ├─ ...
+    └─ 9/
+    图片随便命名，但必须放在对应数字的文件夹里
+    图片是你从 armor_rois 裁下来的装甲板数字区域
+
+   ## 训练 
+    bush：
+    cd ~/Desktop/deep_learning/ultralytics-obb
+    conda activate yolo11
+    
+    python ultralytics/models/digit_classifier.py \
+    --mode train \
+    --data /home/lin/Desktop/deep_learning/digits_dataset \
+    --weights digit_classifier.pt
+
+    用 digits_dataset 读数据（0–9 文件夹）
+    训练 DigitClassifier
+    最好的模型保存在当前目录：digit_classifier.pt
+
+   ## 预测
+    然后跑一个预测试试看：
+
+    python ultralytics-obb/main.py detect \
+    --model yolo11n-obb.pt \
+    --source ultralytics-obb/assets/frame_0354.jpg \
+    --task obb \
+    --conf 0.25 \
+    --show
+    
+    
+# 训练obb模型
+    ~/Desktop/deep_learning/armor_obb_dataset/
+    ├─ images/
+    │    ├─ train/
+    │    │    ├─ img001.jpg
+    │    │    ├─ img002.jpg
+    │    └─ val/
+    │         ├─ img101.jpg
+    │         ├─ img102.jpg
+    └─ labels/
+        ├─ train/
+        │    ├─ img001.txt
+        │    ├─ img002.txt
+        └─ val/
+                ├─ img101.txt
+                ├─ img102.txt
+   ## 训练 
+    bush：
+    cd ~/Desktop/deep_learning/ultralytics-obb
+    conda activate yolo11
+
+    yolo task=obb mode=train \
+    model=yolo11n-obb.pt \
+    data=cfg/armor_obb.yaml \
+    imgsz=1024 \
+    epochs=100 \
+    batch=16 \
+    device=0
+
+    训练完后，权重在：runs/obb/train*/weights/best.pt
+
+# 装甲板本身很小会怎样？
+分两层看：
+检测端（YOLO-OBB）
+    输入图固定比如 1024×768，如果装甲板在原图里只有 10×10 像素，那对于 YOLO 来说已经接近“极小目标”了；
+    检测 head 的下采样 stride（8 / 16 / 32）会让这种小目标的特征非常弱，检测就会先崩。
+
+数字端（Digit CNN）
+    如果 YOLO 给你的 bbox 就只有 10×10 像素，那 _preprocess_roi_bgr 会把这 10×10 放到一个 10×10 的 canvas，再 resize 成 64×64；
+    数字本身其实被放大了，对 Digit CNN 来说不是坏事；
+
+真正的风险是：小装甲板本身非常模糊、噪声重、被压缩后信息就少。
+
+所以：
+    微小装甲板识别难的第一凶手其实是检测端，不是 Digit CNN；
+    Digit CNN 反而因为你有“放大 + 居中”的预处理，对小 ROI 并不一定吃亏。
+
+因此准备现行训练，如是准确率过低，在

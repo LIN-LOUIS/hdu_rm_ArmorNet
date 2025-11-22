@@ -75,7 +75,7 @@ def _preprocess_roi_bgr(roi_bgr: np.ndarray, size: int = 64) -> torch.Tensor:
     """
     if roi_bgr is None or roi_bgr.size == 0:
         raise ValueError("Empty ROI for digit classifier.")
-    # resize & pad 到正方形（保持比例，避免拉伸数字）
+    # resize & pad 到正方形(保持比例，避免拉伸数字）
     h, w = roi_bgr.shape[:2]
     s = max(h, w)
     canvas = np.zeros((s, s, 3), dtype=roi_bgr.dtype)
@@ -96,15 +96,32 @@ def classify_rois(
     device: Optional[str] = None,
     batch_size: int = 32,
     num_classes: int = 10,
+    conf_thr: float = 0.0,  # 新增：置信度阈值，小于此值视为未识别
 ) -> Tuple[List[int], List[float], np.ndarray]:
     """
-    直接喂 ROI 列表进行分类（与你的 Step1 无缝衔接）
-    返回: (pred_digits, pred_scores, logits_np)
+    直接喂 ROI 列表进行分类(与你的 Step1 无缝衔接）
+
+    参数:
+        rois: BGR ndarray 列表，每个是一个装甲板 ROI 小图
+        weights: digit_classifier 的权重路径(.pt)
+        device: 设备字符串，比如 "cuda:0" 或 "cpu"
+        batch_size: 推理 batch size
+        num_classes: 类别数，默认 10 (数字 0~9)
+        conf_thr: 置信度阈值。若某 ROI 最大置信度 < conf_thr，则该 ROI 输出 digit = -1
+
+    返回:
+        preds_digits: List[int]，每个元素为 0~9 或 -1(-1 表示未识别）
+        preds_scores: List[float]，对应的最大 softmax 置信度
+        logits_np: np.ndarray, 形状为 (N, num_classes)，原始 logits
     """
+    # 没有 ROI 直接返回空
     if len(rois) == 0:
         return [], [], np.zeros((0, num_classes), dtype=np.float32)
 
+    # 设备选择
     dev = torch.device(device if device is not None else ("cuda" if torch.cuda.is_available() else "cpu"))
+
+    # 构建模型并加载权重
     model = DigitClassifier(num_classes=num_classes).to(dev).eval()
     if weights and Path(weights).exists():
         ckpt = torch.load(weights, map_location=dev)
@@ -112,13 +129,15 @@ def classify_rois(
         state = ckpt.get("model", ckpt)
         model.load_state_dict(state, strict=True)
 
-    # 预处理打包
+    # 预处理 ROI
     xs = []
     for roi in rois:
         try:
             xs.append(_preprocess_roi_bgr(roi))  # 3x64x64
         except Exception:
+            # 预处理失败的 ROI 直接跳过
             continue
+
     if not xs:
         return [], [], np.zeros((0, num_classes), dtype=np.float32)
 
@@ -128,21 +147,34 @@ def classify_rois(
     preds_scores: List[float] = []
     all_logits: List[np.ndarray] = []
 
+    # 分 batch 推理
     for start in range(0, X.shape[0], batch_size):
         end = min(start + batch_size, X.shape[0])
-        logits = model(X[start:end])  # BxC
-        probs = F.softmax(logits, dim=1)
-        conf, cls = probs.max(dim=1)
-        preds_digits.extend(cls.tolist())
-        preds_scores.extend(conf.tolist())
+        logits = model(X[start:end])  # (B, C)
+        probs = F.softmax(logits, dim=1)  # (B, C)
+        conf, cls = probs.max(dim=1)      # 每个 ROI 的最大置信度 + 对应类别 index
+
+        # 转到 CPU，方便后处理
+        conf_np = conf.detach().cpu().numpy().tolist()
+        cls_np = cls.detach().cpu().numpy().tolist()
+
+        # 根据阈值将低置信度的 ROI 标记为 -1
+        for d, s in zip(cls_np, conf_np):
+            if s < conf_thr:
+                preds_digits.append(-1)  # -1 表示“未识别”
+            else:
+                preds_digits.append(int(d))
+            preds_scores.append(float(s))
+
         all_logits.append(logits.detach().cpu().numpy())
 
     logits_np = np.concatenate(all_logits, axis=0) if all_logits else np.zeros((0, num_classes), dtype=np.float32)
     return preds_digits, preds_scores, logits_np
 
 
+
 # ----------------------------
-# 3) 训练脚本（最小可用）
+# 3) 训练脚本(最小可用）
 # 数据集组织：dataset_root/
 #     ├── 0/*.png
 #     ├── 1/*.png
@@ -226,7 +258,7 @@ def train_digit_classifier(
 
 
 # ----------------------------
-# 4) ONNX 导出（后续可转 OpenVINO）
+# 4) ONNX 导出(后续可转 OpenVINO）
 # ----------------------------
 def export_onnx(weights_in: Optional[str], onnx_out: str = "digit_classifier.onnx", opset: int = 12):
     dev = torch.device("cpu")
