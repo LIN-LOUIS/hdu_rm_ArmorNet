@@ -33,12 +33,12 @@ class BaseDataset(Dataset):
         single_cls (bool): 是否将所有目标视为单一类别。
         prefix (str): 日志打印前缀。
         fraction (float): 使用的数据集比例。
-        channels (int): 图像通道数（灰度图为 1，RGB 图为 3）。
+        channels (int): 图像通道数(灰度图为 1，RGB 图为 3)。
         cv2_flag (int): OpenCV 读取图像的标志位。
         im_files (list[str]): 图像文件路径列表。
         labels (list[dict]): 标签字典列表。
         ni (int): 数据集中图像的数量。
-        rect (bool): 是否使用矩形训练（rectangular training）。
+        rect (bool): 是否使用矩形训练(rectangular training)。
         batch_size (int): batch 大小。
         stride (int): 模型使用的步长。
         pad (float): 填充系数。
@@ -63,9 +63,9 @@ class BaseDataset(Dataset):
         check_cache_ram: 检查内存是否满足缓存需求。
         set_rectangle: 为矩形训练设置每个 batch 的图像尺寸。
         get_image_and_label: 获取图像和对应标签信息。
-        update_labels_info: 自定义标签格式（由子类实现）。
-        build_transforms: 构建数据增强与变换流程（由子类实现）。
-        get_labels: 获取标签数据（由子类实现）。
+        update_labels_info: 自定义标签格式(由子类实现)。
+        build_transforms: 构建数据增强与变换流程(由子类实现)。
+        get_labels: 获取标签数据(由子类实现)。
     """
 
     def __init__(
@@ -102,7 +102,7 @@ class BaseDataset(Dataset):
             single_cls (bool): 若为 True，则视为单类别训练。
             classes (list[int], optional): 需要保留的类别列表。
             fraction (float): 数据集中使用的样本比例。
-            channels (int): 图像通道数（灰度 1，RGB 3）。
+            channels (int): 图像通道数(灰度 1，RGB 3)。
         """
         super().__init__()
         self.img_path = img_path
@@ -125,11 +125,11 @@ class BaseDataset(Dataset):
             assert self.batch_size is not None
             self.set_rectangle()
 
-        # mosaic 增强的缓冲区（容量默认为 batch 大小）
+        # mosaic 增强的缓冲区(容量默认为 batch 大小)
         self.buffer = []
         self.max_buffer_length = min((self.ni, self.batch_size * 8, 1000)) if self.augment else 0
 
-        # 图像缓存设置（cache = True, False, None, "ram", "disk"）
+        # 图像缓存设置(cache = True, False, None, "ram", "disk")
         self.ims, self.im_hw0, self.im_hw = [None] * self.ni, [None] * self.ni, [None] * self.ni
         self.npy_files = [Path(f).with_suffix(".npy") for f in self.im_files]
         self.cache = cache.lower() if isinstance(cache, str) else "ram" if cache is True else None
@@ -150,7 +150,7 @@ class BaseDataset(Dataset):
         从指定路径中读取所有图像文件。
 
         参数：
-            img_path (str | list[str]): 图像目录或文件路径（或其列表）。
+            img_path (str | list[str]): 图像目录或文件路径(或其列表)。
 
         返回：
             (list[str]): 图像文件路径列表。
@@ -416,7 +416,7 @@ class BaseDataset(Dataset):
         return self.update_labels_info(label)
 
     def __len__(self) -> int:
-        """返回数据集中标签列表的长度（即图像数量）。"""
+        """返回数据集中标签列表的长度(即图像数量)。"""
         return len(self.labels)
 
     def update_labels_info(self, label: dict[str, Any]) -> dict[str, Any]:

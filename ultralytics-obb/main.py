@@ -3,14 +3,14 @@
 """
 统一入口脚本 main.py
 
-支持模式：
-  1) 检测 (detect)：只跑 YOLO / YOLO-OBB 检测
-  2) 并行推理 (dual)：YOLO-OBB + 数字分类 两路并行推理
-  3) 导出 (export)：导出 OpenVINO 等格式
+支持模式:
+  1) 检测 (detect):只跑 YOLO / YOLO-OBB 检测
+  2) 并行推理 (dual):YOLO-OBB + 数字分类 两路并行推理
+  3) 导出 (export):导出 OpenVINO 等格式
 
-使用示例：
+使用示例:
 
-  # 1. 仅检测 OBB（单图/视频/摄像头）
+  # 1. 仅检测 OBB(单图/视频/摄像头)
   python main.py detect \
       --model yolo11n-obb.pt \
       --source ultralytics-obb/assets/armor_sample.jpg \
@@ -46,7 +46,7 @@ def run_detect(args: argparse.Namespace):
     """
     model = YOLO(args.model)
 
-    # 根据 task 选择任务：obb / detect / segment / pose...
+    # 根据 task 选择任务:obb / detect / segment / pose...
     task = args.task or "detect"
     conf = args.conf
 
@@ -71,7 +71,7 @@ def run_detect(args: argparse.Namespace):
 def run_dual(args: argparse.Namespace):
     """
     YOLO-OBB + 数字分类并行推理。
-    依赖：ultralytics.models.yolo.obb.predict_dual.DualOBBPipeline
+    依赖:ultralytics.models.yolo.obb.predict_dual.DualOBBPipeline
     """
     from ultralytics.models.yolo.obb.predict_dual import DualOBBPipeline
 
@@ -99,8 +99,8 @@ def run_dual(args: argparse.Namespace):
 # ========= export 模式 =========
 def run_export(args: argparse.Namespace):
     """
-    使用 Ultralytics 的导出接口，导出不同格式（例如 OpenVINO）。
-    典型用法：导出 OpenVINO 的 .xml / .bin
+    使用 Ultralytics 的导出接口，导出不同格式(例如 OpenVINO)。
+    典型用法:导出 OpenVINO 的 .xml / .bin
 
       python main.py export --model yolo11n-obb.pt --format openvino --imgsz 1024
     """
@@ -111,8 +111,8 @@ def run_export(args: argparse.Namespace):
         "imgsz": args.imgsz,           # 输入尺寸
         "half": args.half,             # 是否半精度
         "dynamic": args.dynamic,       # 是否动态图
-        "simplify": args.simplify,     # 是否简化（对 onnx 有用）
-        "int8": args.int8,             # 是否 INT8 量化（部分后端支持）
+        "simplify": args.simplify,     # 是否简化(对 onnx 有用)
+        "int8": args.int8,             # 是否 INT8 量化(部分后端支持)
         "device": args.device,         # 导出设备
     }
 
@@ -131,8 +131,8 @@ def get_args() -> argparse.Namespace:
     # ----- detect 子命令 -----
     p_detect = subparsers.add_parser("detect", help="仅 YOLO / YOLO-OBB 检测推理")
     p_detect.add_argument("--model", type=str, required=True, help="模型权重 .pt 路径")
-    p_detect.add_argument("--source", type=str, required=True, help="输入源（图像/视频/摄像头等）")
-    p_detect.add_argument("--task", type=str, default="obb", help="任务类型：obb / detect / segment / pose 等")
+    p_detect.add_argument("--source", type=str, required=True, help="输入源(图像/视频/摄像头等)")
+    p_detect.add_argument("--task", type=str, default="obb", help="任务类型:obb / detect / segment / pose 等")
     p_detect.add_argument("--conf", type=float, default=0.25, help="置信度阈值")
     p_detect.add_argument("--nosave", action="store_true", help="不保存结果，只显示/打印")
     p_detect.add_argument("--show", action="store_true", help="是否弹窗显示")
@@ -142,7 +142,7 @@ def get_args() -> argparse.Namespace:
     p_dual = subparsers.add_parser("dual", help="YOLO-OBB + 数字分类 并行推理")
     p_dual.add_argument("--model", type=str, required=True, help="YOLO11-OBB 模型权重 .pt")
     p_dual.add_argument("--digit-weights", type=str, default=None, help="digit_classifier.pt 权重路径")
-    p_dual.add_argument("--source", type=str, required=True, help="输入源（图像/视频/摄像头/视频流等）")
+    p_dual.add_argument("--source", type=str, required=True, help="输入源(图像/视频/摄像头/视频流等)")
     p_dual.add_argument("--conf", type=float, default=0.25, help="检测置信度阈值")
     p_dual.add_argument("--device", type=str, default=None, help="推理设备，如 cuda:0 / cpu")
     p_dual.add_argument("--project", type=str, default="runs/dual_main", help="输出目录")
@@ -152,14 +152,14 @@ def get_args() -> argparse.Namespace:
     p_dual.set_defaults(func=run_dual)
 
     # ----- export 子命令 -----
-    p_export = subparsers.add_parser("export", help="导出不同部署格式（OpenVINO / ONNX / TensorRT 等）")
+    p_export = subparsers.add_parser("export", help="导出不同部署格式(OpenVINO / ONNX / TensorRT 等)")
     p_export.add_argument("--model", type=str, required=True, help="模型权重 .pt 路径")
     p_export.add_argument("--format", type=str, default="openvino", help="导出格式，如 openvino / onnx / engine / torchscript 等")
-    p_export.add_argument("--imgsz", type=int, default=1024, help="导出时的输入尺寸（单值代表正方形）")
-    p_export.add_argument("--half", action="store_true", help="导出为 FP16 半精度（支持的后端）")
+    p_export.add_argument("--imgsz", type=int, default=1024, help="导出时的输入尺寸(单值代表正方形)")
+    p_export.add_argument("--half", action="store_true", help="导出为 FP16 半精度(支持的后端)")
     p_export.add_argument("--dynamic", action="store_true", help="是否启用动态输入尺寸")
-    p_export.add_argument("--simplify", action="store_true", help="是否简化导出图（对 onnx 有用）")
-    p_export.add_argument("--int8", action="store_true", help="是否 INT8 量化（部分后端支持）")
+    p_export.add_argument("--simplify", action="store_true", help="是否简化导出图(对 onnx 有用)")
+    p_export.add_argument("--int8", action="store_true", help="是否 INT8 量化(部分后端支持)")
     p_export.add_argument("--device", type=str, default=None, help="导出设备，如 cuda:0 / cpu")
     p_export.set_defaults(func=run_export)
 
@@ -173,7 +173,7 @@ def main():
     if hasattr(args, "model"):
         m = Path(args.model)
         if not m.exists():
-            print(f"[main] 警告：模型路径不存在：{m}（若使用 hub/远程模型可忽略）")
+            print(f"[main] 警告:模型路径不存在:{m}(若使用 hub/远程模型可忽略)")
 
     # 调用对应子命令处理函数
     args.func(args)
