@@ -164,7 +164,7 @@ class BasePredictor:
             return rot.astype(np.float32)
 
         def _crop_quad(self, im0, quad, out_size=(64, 64)):
-            """将任意四边形 ROI 透视到固定小图（默认 64x64）"""
+            """将任意四边形 ROI 透视到固定小图(默认 64x64)"""
             dst = np.array([[0, 0], [out_size[0]-1, 0], [out_size[0]-1, out_size[1]-1], [0, out_size[1]-1]], dtype=np.float32)
             M = cv2.getPerspectiveTransform(quad.astype(np.float32), dst)
             roi = cv2.warpPerspective(im0, M, out_size)
@@ -230,50 +230,48 @@ class BasePredictor:
         """
         1) NMS
         2) 将每张图片的预测构造成 Results 对象
-        3) 提取装甲板 ROI（优先 OBB 旋转裁剪，退化为 xyxy 裁剪）
-        4) 将 ROI 附加到每个 Results（r.armor_rois）并缓存到 self.armor_rois
+        3) 提取装甲板 ROI(优先 OBB 旋转裁剪，退化为 xyxy 裁剪)
+        4) 将 ROI 附加到每个 Results(r.armor_rois)并缓存到 self.armor_rois
         """
-        # 1) NMS（保持与你当前流程一致）
-        preds = ops.non_max_suppression(preds,
-                                        self.args.conf,
-                                        self.args.iou,
-                                        agnostic=self.args.agnostic_nms,
-                                        max_det=self.args.max_det)
+        # 1) NMS(保持与你当前流程一致)
+        preds = ops.non_max_suppression(
+            preds,
+            self.args.conf,
+            self.args.iou,
+            agnostic=self.args.agnostic_nms,
+            max_det=self.args.max_det
+        )
 
         results = []
         self.armor_rois.clear()  # 清空全局缓存
 
-        # 名称表（可能在 AutoBackend 上）
+        # 名称表(可能在 AutoBackend 上)
         names = getattr(self.model, 'names', None)
-        # 允许用 --armor-classes 自定义；否则用默认候选（按你现有工程习惯改）
-        armor_name_candidates = set(getattr(self.args, 'armor_classes', ['armor', 'armor_plate', 'plate']))
 
         for i, det in enumerate(preds):
             # 取原图
             im0 = orig_imgs[i].copy() if isinstance(orig_imgs, list) else orig_imgs.copy()
             H, W = im0.shape[:2]
 
-            # 2) scale 回原图坐标（先对常规 xyxy）
+            # 2) scale 回原图坐标(先对常规 xyxy)
             if len(det):
                 det[:, :4] = ops.scale_boxes(img.shape[2:], det[:, :4], im0.shape).round()
 
-            # 3) 组装 Results（先放常规 boxes/probs；masks 视任务而定）
+            # 3) 组装 Results(先放常规 boxes/probs；masks 视任务而定)
             r = Results(
                 path=None,
-                boxes=det[:, :6] if len(det) else det,  # 兼容 boxes（xyxy, conf, cls）
+                boxes=det[:, :6] if len(det) else det,  # 兼容 boxes(xyxy, conf, cls)
                 masks=None,
                 probs=None,
                 names=names,
                 orig_img=im0
             )
 
-            # 4) ROI 提取（优先 OBB；若无 OBB 则用 xyxy）
+            # 4) ROI 提取(优先 OBB；若无 OBB 则用 xyxy)
             rois = []
 
-            # 4.1 先尝试从 r 或 det 中找到 OBB 信息（不同分支字段名不完全一致）
-            # 常见位置：r.obb / r.boxes.rboxes / det.obb / det.rboxes / 自定义 attr
+            # 4.1 先尝试从 r 或 det 中找到 OBB 信息(不同分支字段名不完全一致)
             obb_array = None
-            # 从 r.boxes 下游结构尝试
             if hasattr(r, 'boxes') and r.boxes is not None:
                 # 一些实现把 OBB 放在 r.boxes.rboxes 或 r.boxes.obb
                 for key in ('rboxes', 'obb', 'xywhr', 'xywht'):
@@ -287,19 +285,16 @@ class BasePredictor:
                         if obb_array is not None:
                             break
 
-            # 4.2 遍历每个检测，匹配装甲板类别
+            # 4.2 遍历每个检测，把所有框都当作装甲板 ROI
             if len(det):
                 for j in range(det.shape[0]):
                     x1, y1, x2, y2, conf, cls = det[j].tolist()
                     cls = int(cls)
-                    cls_name = (names[cls] if names and cls in range(len(names)) else str(cls))
+                    # 不再按名字过滤，所有预测框都提 ROI
 
-                    # 若指定了装甲板类别名才提取 ROI
-                    if cls_name not in armor_name_candidates:
-                        continue
+                    roi = None
 
                     # 优先用 OBB 的第 j 个框
-                    roi = None
                     if obb_array is not None and j < len(obb_array):
                         # 兼容若 obb 为 [cx,cy,w,h,theta] 或 [x,y,w,h,theta]；假定为像素坐标 + 弧度
                         cx, cy, w, h, theta = obb_array[j][:5]
@@ -322,12 +317,13 @@ class BasePredictor:
                     if roi is not None and roi.size > 0:
                         rois.append(roi)
 
-            # 把 ROI 放进单张结果；同时缓存到 predictor 上（供外部读取）
+            # 把 ROI 放进单张结果；同时缓存到 predictor 上(供外部读取)
             r.armor_rois = rois
             results.append(r)
             self.armor_rois.append(rois)
 
         return results
+
     def setup_source(self, source):
         """
         设置输入源及推理模式。
