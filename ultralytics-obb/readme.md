@@ -201,3 +201,19 @@
     | -------------------------------- | ---------------------- | --------------- |
     | ① 在 `__init__()` 中新增属性           | `self.armor_rois = []` | 存储每次推理后的 ROI 区域 |
     | ② 在 `postprocess()` 中新增 ROI 提取逻辑 | 检测结果过滤 & ROI 裁剪        | 提取每帧的装甲板区域      |
+
+BEST=/home/lin/Desktop/deep_learning/ultralytics-obb/armor_best.pt
+DIGIT=/home/lin/Desktop/deep_learning/ultralytics-obb/digit_classifier.pt
+IMG=/home/lin/Desktop/deep_learning/ultralytics-obb/armor_frames_dir/frame_00024.jpg
+
+
+# 修改记录2
+## 修改1
+    | 修改点                              | 操作                     | 作用              |
+    | -------------------------------- | ---------------------- | --------------- |
+    | ① ultralytics-obb/ultralytics/models/digit_classifier.py         | `加载 digit 一次、用 OBB 多边形定位文字、加过滤与融合。` | 修改了digit_classifier.py，新增了属性和函数 |
+    | ②main.py |  在 get_args() 的 dual 子命令里加两个参数       | 提取每帧的装甲板区域      |
+
+BEST=/home/lin/Desktop/deep_learning/ultralytics-obb/armor_best.pt
+DIGIT=/home/lin/Desktop/deep_learning/ultralytics-obb/digit_classifier.pt
+IMG=/home/lin/Desktop/deep_learning/ultralytics-obb/armor_frames_dir/frame_00024.jpg

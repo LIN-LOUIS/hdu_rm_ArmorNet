@@ -87,6 +87,8 @@ def run_dual(args: argparse.Namespace):
         out_dir=args.project,
         max_workers=args.workers,
         conf=args.conf,
+        digit_thres=args.digit_thres,
+        fuse_score=args.fuse,
     )
 
     pipeline.run(
@@ -150,6 +152,8 @@ def get_args() -> argparse.Namespace:
     p_dual.add_argument("--nosave", action="store_true", help="不保存结果，只显示/调试")
     p_dual.add_argument("--show", action="store_true", help="是否弹窗显示")
     p_dual.set_defaults(func=run_dual)
+    p_dual.add_argument("--digit-thres", type=float, default=0.60, help="数字置信度阈值，低于则丢框")
+    p_dual.add_argument("--fuse", action="store_true", help="融合分数 final=det_conf*digit_prob")
 
     # ----- export 子命令 -----
     p_export = subparsers.add_parser("export", help="导出不同部署格式(OpenVINO / ONNX / TensorRT 等)")
